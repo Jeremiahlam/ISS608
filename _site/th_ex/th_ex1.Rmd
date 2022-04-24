@@ -48,9 +48,82 @@ Participants <- read_csv("data/Participants.csv")
 
 # A Simple Bar Chart
 
+The code chunk below segments the data imported from *Participants.csv* by using [`ggplot()`](https://ggplot2.tidyverse.org/reference/ggplot.html) of [**ggplot2**](https://ggplot2.tidyverse.org/) package as well as `geom_bar()` to create the stacked bar graph and `geom_text()` to label the created graph with the appropriate values.
+
+```{r}
+ggplot(Participants, aes(x=householdSize, fill = educationLevel)) + 
+  geom_bar() + 
+  geom_text(stat="count",
+            aes(label=paste0(..count..,", ",
+                             round(..count../sum(..count..)*100,
+                                   1),"%")),
+            position = position_stack(vjust = 0.5), size = 3) +
+  xlab("Household Size") +
+  ylab("No. of\nParticipants") +
+  labs(fill = "Education Level") + 
+  theme(axis.title.y=element_text(angle=0))
+```
+From this graph, we can observe that Participants who have a High school education or lower tend to come from household sizes of 2 or 3, which may be be due to other commitments and pursuits they might have currently (e.g. taking care of their kids or getting a job early to support their family).
+
+
+# A Simple Boxplot
+
+The code chunk below dissects the data imported from *Participants.csv* by using [`ggplot()`](https://ggplot2.tidyverse.org/reference/ggplot.html) of [**ggplot2**](https://ggplot2.tidyverse.org/) package as well as `geom_boxplot()` to create the box plot graph, `facet_grid()` and `labeller()` to help visualize the joviality levels across different household sizes and whether there are children living in the household.
+
+```{r}
+new <- c("Household size = 1", "Household size = 2", "Household size = 3")
+names(new) <- c("1", "2", "3")
+ggplot(data = Participants,
+       aes(y = joviality, x = haveKids)) +
+  geom_boxplot(notch = TRUE) +
+  facet_grid(~ householdSize, labeller = labeller(householdSize = new)) + 
+  stat_summary(geom ="point",
+              fun.y = "mean",
+              colour = "blue",
+              size = 2)
+```
+Based on the graph above, it is interesting to note that the median and mean joviality levels (annotated by the notched line and blue dot respectively) of household sizes with 2 or more or with kids, are higher. Subsequently, the `minimum(Q1 - 1.5*IQR)`joviality levels for the aforementioned categories are also higher. This could be due to the fact that humans are social creatures and having some form of support in your household could help boost your happiness.
+
+
+The code chunk below dissects the data  in a slightly different manner, albeit still using the box plot graph, it helps to visualize the joviality levels across different education levels.
+
 ```{r}
 ggplot(data = Participants,
-       aes(x = age)) +
-  geom_bar()
+       aes(y = joviality, x = educationLevel)) +
+  geom_boxplot(notch = TRUE) +
+  stat_summary(geom ="point",
+              fun.y = "mean",
+              colour = "blue",
+              size = 2) +
+  ylab("Joviality") +
+  xlab("Education Level") +
+  theme(axis.title.y=element_text(angle=0))
 ```
+Based on the graph above, it is interesting to observe that the median and mean joviality levels (annotated by the notched line and blue dot respectively) of those with a higher education level are higher as well.
 
+# A Simple Histogram
+
+Lastly, the code chunk below dissects the data imported from *Participants.csv* by using [`ggplot()`](https://ggplot2.tidyverse.org/reference/ggplot.html) of [**ggplot2**](https://ggplot2.tidyverse.org/) package as well as `geom_histogram()` to create a histogram to help visualize the age range across participants and `geom_vline` to observe the mean and median age. 
+
+Based on the graph further below, it is interesting to note that the largest amount of participants come from those in their early 30s, whilst the median and mean age of participants is close to 40, which may be indicative of an aging population.
+
+```{r}
+ggplot(data=Participants, 
+       aes(x= age)) +
+  geom_histogram(bins=20,
+                 color = 'black',
+                 fill='light blue') +
+  geom_vline(aes(xintercept=mean(age,
+                                 na.rm=T)),
+             color="red",
+             linetype='dashed',
+             size=1) +
+  geom_vline(aes(xintercept=median(age,
+                                 na.rm=T)),
+             color="grey30",
+             linetype='dashed',
+             size=1) +
+  ylab("No. of\nParticipants") +
+  xlab("Age of Participants") +
+  theme(axis.title.y=element_text(angle=0))
+```
