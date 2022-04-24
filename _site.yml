@@ -18,6 +18,6 @@ navbar:
         href: "DataViz2"
     - text: "Take-home Exercise"
       menu:
-      - text: "Take-home exercise 1"
-        href: "THex1"
+      - text: "Take-home Exercise 1"
+        href: "th_ex/th_ex1.html"
 output: distill::distill_article
