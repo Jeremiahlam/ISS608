@@ -1,5 +1,5 @@
 ---
-title: "Evil Prof Course"
+title: "Data Analytics Journey"
 description: |
   Welcome to the website. I hope you enjoy it!
 site: distill::distill_website
@@ -11,11 +11,4 @@ knitr::opts_chunk$set(echo = FALSE)
 # Learn more about creating websites with Distill at:
 # https://rstudio.github.io/distill/website.html
 
-packages = c('tidyverse')
-for(p in packages){
-if(!require(p, character.only = T)){
-install.packages(p)
-}
-library(p, character.only = T)
-}
 
