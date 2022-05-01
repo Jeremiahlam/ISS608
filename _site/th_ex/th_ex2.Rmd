@@ -1,0 +1,54 @@
+---
+title: "Take-home Exercise 2"
+description: |
+  In this Take-home Exercise, I will review one of my peers work and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualisation principles and best practices. 
+author:
+  - name: Jeremiah Lam 
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this Take-home Exercise, I will review one of my [**peers work**](https://kimsiang-va.netlify.app/takehome_exercise/takehome_exercise_1.html) and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualisation principles and best practices.
+
+Before getting started, it is important to ensure that the required R packages have been installed. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('tidyverse')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+# Importing Data
+The code chunk below imports *Participants.csv* from the data folder into R by using [`read_csv()`](https://readr.tidyverse.org/reference/read_delim.html) of [**readr**](https://readr.tidyverse.org/reference/index.html) package and saves it as a tibble data frame called *Participants*. This is the same data set that was utilized by my peer for his take-home exercise.
+
+```{r}
+Participants <- read_csv("data/Participants.csv")
+```
+
+
+
+# What's good in terms of clarity and aesthetics
+
+# What can be improved on in terms of clarity and aesthetics
+
+# Remaking the original design
+
+
+
+
+
