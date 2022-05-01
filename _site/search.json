@@ -3,18 +3,18 @@
     {
       "path": "about.html",
       "title": "About this site",
-      "description": "This webiste consists of a collection of works done for courses I took during my MITB(Analytics) journey. I hope you enjoy reading them",
+      "description": "This webiste consists of a collection of works done for courses I took during my MITB(Analytics) journey. I hope you enjoy reading them!",
       "author": [],
       "contents": "\r\n\r\n\r\n\r\n",
-      "last_modified": "2022-05-01T20:37:52+08:00"
+      "last_modified": "2022-05-01T23:16:23+08:00"
     },
     {
       "path": "index.html",
       "title": "Data Analytics Journey",
-      "description": "Welcome to the website. I hope you enjoy it!\n",
+      "description": "Welcome to the website. This webiste consists of a collection of works done for courses I took during my MITB(Analytics) journey. I hope you enjoy reading them!\n",
       "author": [],
       "contents": "\r\n\r\n\r\n\r\n",
-      "last_modified": "2022-05-01T20:37:29+08:00"
+      "last_modified": "2022-05-01T23:16:10+08:00"
     }
   ],
   "collections": []

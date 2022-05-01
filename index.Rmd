@@ -1,7 +1,7 @@
 ---
 title: "Data Analytics Journey"
 description: |
-  Welcome to the website. I hope you enjoy it!
+  Welcome to the website. This webiste consists of a collection of works done for courses I took during my MITB(Analytics) journey. I hope you enjoy reading them!
 site: distill::distill_website
 ---
 

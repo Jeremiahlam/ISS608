@@ -1,7 +1,7 @@
 ---
 title: "Take-home Exercise 2"
 description: |
-  In this Take-home Exercise, I will review one of my peers work and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualisation principles and best practices. 
+  In this Take-home Exercise, I will review one of my peers work and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualization principles and best practices. 
 author:
   - name: Jeremiah Lam 
     url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Overview
 
-In this Take-home Exercise, I will review one of my [**peers work**](https://kimsiang-va.netlify.app/takehome_exercise/takehome_exercise_1.html) and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualisation principles and best practices.
+In this Take-home Exercise, I will review one of my [**peer's work**](https://kimsiang-va.netlify.app/takehome_exercise/takehome_exercise_1.html) and critic it in terms of clarity and aesthetics. Subsequently, I will remake the original design by using data visualization principles and best practices.
 
 Before getting started, it is important to ensure that the required R packages have been installed. 
 
@@ -42,13 +42,65 @@ Participants <- read_csv("data/Participants.csv")
 
 
 
-# What's good in terms of clarity and aesthetics
+# What was good
 
-# What can be improved on in terms of clarity and aesthetics
+Appropriate methods were used to encode values in a graph. Firstly, bar charts were utilized to represent discrete values such as household size, education level and age. Secondly, the bar charts quantitative scale was appropriate as it begins at zero, allowing casual readers and professionals to easily visualize and compare the data presented.
+
+Lastly, pie charts were avoided to represent the discrete values, instead bar charts were mainly utilized. This is good as the human eye is not good in reading areas. For example, displaying the count of household of different sizes (1, 2 and 3) in a bar chart lets the reader easily visualize the number of participants belonging to each household size. Compared to if the same data was presented in a pie chart format, it would be harder for the reader to visualize the number of participants belonging to each household size.
+
+# What can be improved on 
+
+The two code chunks below produces two bar charts that my [**peer**](https://kimsiang-va.netlify.app/takehome_exercise/takehome_exercise_1.html) has used in his exercise to present data on household sizes and whether participants had kids.
+
+```{r}
+ggplot(Participants, aes(x=householdSize)) +
+  geom_bar()
+```
+```{r}
+ggplot(Participants, aes(x=haveKids)) +
+  geom_bar()
+```
+These two graphs can be improved on in four aspects. Firstly, the y-axis and x-axis title can be renamed to give readers more clarity. For example, *count* can be renamed to *No. of Participants* and *householdSize* and *haveKids* can be renamed to *Household Size* and *Have Kids*. Further, the y-axis title can be further formatted to be displayed horizontally instead to make it easier for readers.
+
+Secondly, a graph title and subtitle can be added to the graphs to give readers more clarity on the data being presented and an overview on any insights the data might provide. For example, for the bar chart on household sizes, the graph title can be *Participant's Household Size* and the subtitle can be *Highest number of participants come from household size of 2*.
+
+Thirdly, additional labels can be added to the bar charts to give readers insights into the finer details of the data. For example, labels can be added to the top of each bar in the barchart for household size, so that readers will know the exact number of participants that belong to household sizes of 1, 2 and 3 respectively.
+
+Lastly, the devil is in the data. Additional data points can be used in the *Participants* data set together with participant's household size and whether participant's have kids to derive more interesting insights. For example, household size can be plotted in a bar chart together with education level as the fill, to see if there are any interesting patterns between household size and education level.
+
 
 # Remaking the original design
 
+The two code chunks below remakes the two bar charts. `geom_text()` is used to give the additional text labels to the bars in the bar chart and show the exact number of participants and their % breakdown. `xlab()` and `ylab()` is used to rename the x-axis and y-axis titles. `labs()` is used to rename the legend (i.e. Education Level), as well as give the bar chart a title and subtitle. Lastly, `theme()` is used to reformat the y-axis title to make is appear horizontally.
 
+```{r}
+ggplot(Participants, aes(x=householdSize, fill = educationLevel)) + 
+  geom_bar() + 
+  geom_text(stat="count",
+            aes(label=paste0(..count..,", ",
+                             round(..count../sum(..count..)*100,
+                                   1),"%")),
+            position = position_stack(vjust = 0.5), size = 3) +
+  xlab("Household Size") +
+  ylab("No. of\nParticipants") +
+  labs(title = "Participant's Household Sizes", subtitle = "Highest number of participants come from household size of 2", fill = "Education Level") + 
+  theme(axis.title.y=element_text(angle=0)) 
+```
+
+```{r}
+ggplot(Participants, aes(x=haveKids, fill = educationLevel)) + 
+  geom_bar() + 
+  geom_text(stat="count",
+            aes(label=paste0(..count..,", ",
+                             round(..count../sum(..count..)*100,
+                                   1),"%")),
+            position = position_stack(vjust = 0.5), size = 3) +
+  xlab("Have Kids") +
+  ylab("No. of\nParticipants") +
+  labs(title = "Breakdown of participants who have kids", subtitle = "Less participants have kids", fill = "Education Level") + 
+  theme(axis.title.y=element_text(angle=0)) 
+```
+With the remake done as above, readers now have more clarity and insights from the bar charts presented. For example, for the bar chart on participant household sizes, besides having clear graph titles, axis titles and labels, readers can now also observe that participants who have a High school education or lower tend to come from household sizes of 2 or 3, which may be be due to other commitments and pursuits they might have currently (e.g. taking care of their kids or getting a job early to support their family).
 
 
 
