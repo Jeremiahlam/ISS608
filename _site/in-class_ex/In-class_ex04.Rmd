@@ -1,0 +1,89 @@
+---
+title: "In Class Exercise 4"
+description: |
+  In this in class exercise, I will explore using ggstatsplot and tidyverse packages on sample data to practice visual statistical analysis.
+author:
+  - name: Jeremiah Lam 
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, fig.retina = 3, fig.height = 6)
+```
+
+# Overview
+
+In this in class exercise, I will explore using [**ggstatsplot**](https://www.rdocumentation.org/packages/ggstatsplot/versions/0.1.4) and tidyverse packages on sample data to practice visual statistical analysis.
+
+The data is processed by using appropriate tidyverse and ggstatsplot family of packages.
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('tidyverse', 'ggstatsplot', 'rstantools')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+# Importing Data
+
+The code chunk below imports *Exam_data.csv* from the data folder into R by using [`read_csv()`](https://readr.tidyverse.org/reference/read_delim.html) of [**readr**](https://readr.tidyverse.org/reference/index.html) package and saves it as a tibble data frame called *exam*.
+
+```{r}
+exam <- read_csv("data/Exam_data.csv")
+```
+
+# Working with ggstatsplot
+
+### Anova stats plot (using parametric)
+
+The code chunk below uses [**ggbetweenstats()**](https://indrajeetpatil.github.io/ggstatsplot/articles/web_only/ggbetweenstats.html) to build a visual for One-way ANOVA test on English scores by race.
+
+```{r}
+ggbetweenstats(data = exam, 
+               x = RACE,
+               y = ENGLISH
+               )
+```
+
+### Anova stats plot (using non-parametric)
+
+The code chunk below uses  [**ggbetweenstats()**](https://indrajeetpatil.github.io/ggstatsplot/articles/web_only/ggbetweenstats.html) to build a visual for four-sample mean test of English scores by race.
+
+```{r}
+ggbetweenstats(data = exam, 
+               x = RACE,
+               y = ENGLISH,
+               type = 'np'
+               )
+```
+
+### Anova stats plot (using bayes)
+
+The code chunk below uses  [**ggbetweenstats()**](https://indrajeetpatil.github.io/ggstatsplot/articles/web_only/ggbetweenstats.html) to build a visual of four-sample test of English scores by race.
+
+```{r}
+set.seed(1234)
+
+ggbetweenstats(data = exam, 
+               x = RACE,
+               y = ENGLISH,
+               type = 'bayes'
+               )
+```
+
+
+
