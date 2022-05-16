@@ -1,0 +1,278 @@
+---
+title: "Take-home Exercise 3"
+description: |
+  In this Take-home Exercise, I will attempt to answer question three of Challenge 3 of the VAST Challenge 2022. I will reveal the economy of the city of Engagement, Ohio USA by using appropriate static and interactive statistical graphics methods.
+author:
+  - name: Jeremiah Lam  
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this take-home exercise, appropriate static statistical graphic methods are used to reveal the economy of the city of Engagement, Ohio USA. 
+
+The data is processed by using appropriate tidyverse family of packages and the statistical graphics are prepared using ggplot2 and its extensions.
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('tidyverse','ggiraph', 'plotly', 
+             'DT', 'patchwork',
+             'gganimate','readxl', 'gifski', 'gapminder',
+             'treemap', 'treemapify',
+             'rPackedBar', 'trelliscopejs', 'ggridges', 'highcharter')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+# Importing Data
+
+The code chunk below imports data provided by [**VAST Challenge 2022**](https://vast-challenge.github.io/2022/) into R by using [`read_csv()`](https://readr.tidyverse.org/reference/read_delim.html) of [**readr**](https://readr.tidyverse.org/reference/index.html) package and saves it as a tibble data frame.
+
+```{r}
+participants <- read_csv('data/Participants.csv')
+schools <- read_csv('data/Schools.csv')
+restaurants <- read_csv('data/Restaurants.csv')
+pubs <- read_csv('data/Pubs.csv')
+jobs <- read_csv('data/Jobs.csv')
+employers <- read_csv('data/Employers.csv')
+checkin <- read_csv('data/CheckinJournal.csv')
+buildings <- read_csv('data/Buildings.csv')
+```
+
+# Data Wrangling
+
+To find out the number of employees each employer is looking to hire and the mean wage they're willing to pay, the below code chunk is used to manipulate the jobs data set.
+
+```{r}
+employersdata <- jobs %>%
+  select(employerId,hourlyRate, jobId) %>%
+  group_by(employerId) %>%
+  summarise(mean_hourlyrate = mean(hourlyRate),
+            Jobcount = n())
+```
+
+We also try to segment each of the employers into either a *school*, *pub*, *restaurant* or *other*. We first have to see if we're able to find a match within the dataset based on the data points *employerId* and *buildingId*. 
+
+```{r}
+employersdata <- employersdata %>%
+  left_join(employers, by ="employerId") %>%
+  left_join(restaurants, by ="buildingId") %>%
+  left_join(schools, by ="buildingId") %>%
+  left_join(pubs, by = "buildingId")
+```
+
+Subsequently we clean up the new data set, *employersdata*, by dropping any irrelevant columns.
+
+```{r}
+employersdata <- subset(employersdata, select = -c(foodCost, maxOccupancy.x, location.y, monthlyCost, maxEnrollment, location.x.x, hourlyCost, maxOccupancy.y, location.y.y ))
+```
+
+And rename the remaining columns for ease of reading.
+
+```{r}
+employersdata <- employersdata %>%
+  rename('EmployeeCount' = 'Jobcount',
+         'location' = 'location.x')
+```
+
+Lastly, we create a new column called *Segment* to define whether the employer is a *restaurant*, *pub*, *school* or *other* by using the code chunk below.
+
+```{r}
+employersdata$Segment <- ifelse(!is.na(employersdata$restaurantId), "restaurant",
+                                ifelse(!is.na(employersdata$pubId), "pub",
+                                       ifelse(!is.na(employersdata$schoolId), "school", "other")))
+```
+
+We also want to see in particular if there was high-turnovers, to do so we've to transform the data in *checkin* using the code chunk below and use this as a proxy to gauge turnovers.
+
+```{r}
+employeemovement <- checkin %>%
+  filter(venueType == 'Workplace') %>%
+  select(participantId, timestamp, venueId) %>%
+  group_by(participantId, venueId) %>%
+  summarise(mintimestamp = min(timestamp, na.rm = T), count = n())
+```
+Further create a new table to filter out only participants who left their jobs.
+
+```{r}
+employeeleft <- employeemovement %>%
+  group_by(participantId) %>%
+  filter(n() >= 2)
+```
+
+Sort the data using `arrange()`, `mutate()` to add a new column called *rank*, and `add_count()` to count the number of jobs the participant had.
+
+```{r}
+employeeleft <- employeeleft %>% arrange(participantId, mintimestamp) %>%
+  group_by(participantId) %>%
+  mutate(rank = rank(mintimestamp)) %>%
+  add_count(participantId) %>%
+  rename('CountID' = 'n')
+```
+
+Lastly, add a new column *status* to define whether the participant is still at the job position.
+
+```{r}
+employeeleft$status <- ifelse(employeeleft$CountID == 2, 
+                              ifelse(employeeleft$rank == 1, "left job", "current job"),
+                              ifelse(employeeleft$rank == 3, 'current job', 'left job'))
+```
+Create a new table called *employerattrition*.
+
+```{r}
+employerattrition <- employeeleft %>%
+  group_by(venueId) %>%
+  summarise(employeeleftcount = n())
+```
+
+We also want to know the segment each job belongs to, to do so we manipulate the *jobs* data table using the code chunk below.
+
+```{r}
+jobs <- jobs %>%
+  left_join(employersdata, by ="employerId")
+```
+
+# Health of various employers in the city
+
+The below code chunk shows the mean hourly wage an employer pays in the respective segments and with error bar showing the spread of the hourly rate paid for each segment. It is interesting to note that restaurants pay the highest hourly mean wage of 19.43 and also have the largest spread of wages.
+
+```{r}
+tooltip <- function(y, ymax, accuracy = .01) {
+  mean <- scales::number(y, accuracy = accuracy)
+  sem <- scales::number(ymax - y, accuracy = accuracy)
+  paste("Mean hourly rate:", mean, "+/-", sem)
+} 
+gg_point1 <- ggplot(data=jobs, 
+                   aes(x = Segment),
+) +
+  stat_summary(aes(y = hourlyRate, 
+                   tooltip = after_stat(
+                     tooltip(y, ymax))),
+    fun.data = "mean_se", 
+    geom = GeomInteractiveCol,
+    fill = "light green"
+  ) +
+  stat_summary(aes(y = hourlyRate),
+    fun.data = mean_se,
+    geom = "errorbar", width = 0.2, size = 0.2
+  )
+girafe(ggobj = gg_point1,
+       width_svg = 8,
+       height_svg = 8*0.618)
+```
+
+The below code chunk shows the mean number of job openings for each employer in the respective segment, with error bar showing the spread of the number of job openings per employer. Again, restaurants have the highest mean number of job openings at 5.35 and also have the largest spread of job openings.
+
+```{r}
+tooltip <- function(y, ymax, accuracy = .01) {
+  mean <- scales::number(y, accuracy = accuracy)
+  sem <- scales::number(ymax - y, accuracy = accuracy)
+  paste("Mean job openings:", mean, "+/-", sem)
+} 
+gg_point2 <- ggplot(data=employersdata, 
+                   aes(x = Segment),
+) +
+  stat_summary(aes(y = EmployeeCount, 
+                   tooltip = after_stat(
+                     tooltip(y, ymax))),
+    fun.data = "mean_se", 
+    geom = GeomInteractiveCol,
+    fill = "salmon"
+  ) +
+  stat_summary(aes(y = EmployeeCount),
+    fun.data = mean_se,
+    geom = "errorbar", width = 0.2, size = 0.2
+  ) +
+  ylab('# of Job Openings')
+girafe(ggobj = gg_point2,
+       width_svg = 8,
+       height_svg = 8*0.618)
+```
+The below code chunk goes into detail on the spread of wages for different education levels and segments using a ridge plot.
+
+```{r}
+p <- ggplot(data= jobs, 
+       aes(x = hourlyRate, y = educationRequirement , fill = Segment)) +
+  geom_density_ridges(geom = "density_ridges_gradient", 
+                      calc_ecdf = TRUE,
+                      quantiles = 4, 
+                      quantile_lines = TRUE,
+                      alpha = .4) +
+  theme_ridges() + 
+  scale_fill_viridis_d(name = "Quartiles")+
+  theme_bw()+
+      labs(
+    y= 'Education Requirement',
+    x= 'Hourly Rate',
+    title = "Hourly Rate for jobs of different education level",
+    caption = "demographic information, Ohio USA"
+  ) +
+  theme(
+    axis.title.y= element_text(angle=0), axis.ticks.x= element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 1),
+    plot.caption = element_text(hjust = 0),
+    axis.text.x = element_text(vjust = 0.5)
+  )+
+  facet_wrap(~ Segment)
+
+p
+```
+The below code chunk goes into detail on the spread of job openings for different segments using a ridge plot.
+
+```{r}
+ggplot(employersdata, 
+       aes(x = EmployeeCount, y = Segment,
+           fill = 0.5 - abs(0.5 - stat(ecdf)))) +
+  stat_density_ridges(
+    geom = "density_ridges_gradient",
+    calc_ecdf = TRUE,
+    rel_min_height = 0.001) +                      
+  scale_fill_viridis_c(name = "Tail probability",
+                       direction = -1) +
+  theme_bw()+
+      labs(
+    y= 'Segment',
+    x= 'Job Openings',
+    title = "Job Openings among different segments",
+    caption = "demographic information, Ohio USA"
+  ) +
+  theme(
+    axis.title.y= element_text(angle=0), axis.ticks.x= element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 1),
+    plot.caption = element_text(hjust = 0),
+    axis.text.x = element_text(vjust = 0.5)
+  )
+```
+The below code chunk gives an interactive and aggregated view of job openings by education level and segement.
+
+```{r}
+p2 <- ggplot(data = jobs, aes(x=educationRequirement, fill = Segment)) + 
+  geom_bar() + 
+  xlab("Education Requirement") +
+  ylab("No. of\n Job Openings") +
+  labs(title = "Breakdown of Job Openings", fill = "Segment") + 
+  theme(axis.title.y=element_text(angle=0)) 
+
+ggplotly(p2, tooltip = "all")
+```
+
+
