@@ -266,13 +266,17 @@ The below code chunk gives an interactive and aggregated view of job openings by
 
 ```{r}
 p2 <- ggplot(data = jobs, aes(x=educationRequirement, fill = Segment)) + 
-  geom_bar() + 
+  geom_bar_interactive(
+    aes(tooltip =..count..,
+        data_id = Segment)
+  ) + 
   xlab("Education Requirement") +
   ylab("No. of\n Job Openings") +
   labs(title = "Breakdown of Job Openings", fill = "Segment") + 
   theme(axis.title.y=element_text(angle=0)) 
 
-ggplotly(p2, tooltip = "all")
+girafe(ggobj = p2,
+       width_svg = 10,
+       height_svg = 10*0.618)
 ```
-
 
