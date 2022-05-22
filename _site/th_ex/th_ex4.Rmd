@@ -1,0 +1,143 @@
+---
+title: "Take-home Exercise 4"
+description: |
+  In this Take-home Exercise, I will attempt to answer question 3 of Challenge 2 of the VAST Challenge 2022. I will reveal and describe the daily routines of 2 participants of Engagement, Ohio USA by using appropriate static and interactive statistical graphics methods.
+author:
+  - name: Jeremiah Lam  
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this take-home exercise, appropriate static and interactive statistical graphic methods are used to reveal the routines of the participants in the city of Engagement, Ohio USA. 
+
+The data is processed and prepared by using appropriate tidyverse, scales, viridis, lubridate, ggthemes. gridExtra, readxl, knitr, data.table and ViSiElse family of packages. 
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('scales', 'viridis', 
+             'lubridate', 'ggthemes', 
+             'gridExtra', 'tidyverse', 
+             'readxl', 'knitr',
+             'data.table', 'ViSiElse','clock', 'janitor', 'plotly', 'ggiraph', 'patchwork', 'gganimate')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+
+# Importing Data
+
+The code chunk below imports data provided by [**VAST Challenge 2022**](https://vast-challenge.github.io/2022/) into R by using [`read_csv()`](https://readr.tidyverse.org/reference/read_delim.html) of [**readr**](https://readr.tidyverse.org/reference/index.html) package and saves it as a tibble data frame.
+
+```{r}
+logs <- read_csv('data/ParticipantStatusLogs1.csv')
+```
+It is always a good practice to examine the imported data frame before further analysis is performed.
+
+For example, `kable()` can be used to review the structure of the imported data frame.
+
+
+```{r}
+kable(head(logs))
+```
+
+# Preparation of Data
+
+To prepare the data, first we select the logs specific to participant 500 and 501.
+
+```{r}
+logs_selected <- logs %>%
+  filter(participantId == 500 | participantId == 501) %>%
+  select(participantId, timestamp, currentMode)
+```
+
+```{r}
+logs_selected1 <- logs_selected %>%
+  mutate(timestamp = ymd_hms(timestamp, quiet = TRUE )) %>%
+  mutate(wkday = weekdays(timestamp)) %>%
+  mutate(hour = hour(timestamp)) %>%
+  mutate(date = date(timestamp)) %>%
+  mutate(Start = timestamp) %>%
+  mutate(End = timestamp + 5*60)
+```
+
+```{r}
+p1 <- logs_selected1 %>% 
+  filter(date == '2022-03-01') 
+
+p2 <- logs_selected1 %>% 
+  filter(date == '2022-03-05')
+
+```
+# Plotting the graph
+
+Interesting to note that there's a distinct difference in lifestyles between participant 500 and 501, even on a Tuesday, participant 501 is finding time for recreational activities and is intermitently travelling about via transport to different places throughout the day. Participant 500 on the other hand, is more sedentary, only travelling to and from work, and during lunch, before heading home after work.
+
+
+```{r}
+ggplot(p1, aes(x=Start, xend=End, y=currentMode, yend=currentMode)) +
+  geom_segment(aes(group = seq_along(start)), size=10)+
+  xlab("Time") +
+  ylab("Activity") +
+  ggtitle("Typical Tuesday")+ 
+  facet_wrap(~participantId, nrow=2)
+```
+No surprises that both participants spend most of their time on a Saturday doing recreational activities and travelling about. However, it is interesting to note that participant 501 doesn't dine out on weekends.
+
+```{r}
+ggplot(p2, aes(x=Start, xend=End, y=currentMode, yend=currentMode)) +
+  geom_segment(aes(group = seq_along(start)), size=10)+
+  xlab("Time") +
+  ylab("Activity") +
+  ggtitle("Saturday")+ 
+  facet_wrap(~participantId, nrow=2)
+```
+The heatmap below gives a broader overview on how the participants allocate their time throughout the week.
+
+
+```{r}
+p3 <- logs_selected1 %>%
+  select(participantId, currentMode, wkday, date, Start, End) %>%
+  group_by(participantId, currentMode, wkday, date) %>%
+  summarise(count = n()*5)
+
+ggplot(p3,
+       aes(wkday,
+           currentMode,
+           fill = count)) +
+  geom_tile(color = "white",
+            size = 0.1) +
+  theme_tufte(base_family = "Helvetica") +
+  coord_equal() + 
+  scale_fill_gradient(name = "Frequency of activity(by mins)",
+                      low = "sky blue",
+                      high = "dark blue") +
+  labs(x = "Day",
+       y = "Activity",
+       title = "Frequency of activity by day") +
+  theme(axis.ticks = element_blank(),
+plot.title = element_text(hjust = 0.5),
+legend.title = element_text(size = 8),
+legend.text = element_text(size = 6),
+axis.text.x = element_text(size = 8, angle = 90)) +
+  facet_wrap(~participantId, ncol = 1)
+
+```
