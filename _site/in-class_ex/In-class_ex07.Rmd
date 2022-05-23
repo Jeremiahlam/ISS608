@@ -1,0 +1,241 @@
+---
+title: "In Class Exercise 7"
+description: |
+  In this in class exercise, I will explore using igraph, tidygraph, ggraph and visNetworks on sample data to practice handling, processing, visualising and analysing social network data.
+author:
+  - name: Jeremiah Lam 
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('igraph', 'tidygraph', 
+             'ggraph', 'visNetwork', 
+             'lubridate', 'clock',
+             'tidyverse', 'ggmap')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+# Importing the data
+
+The code chunk below imports GAStech_email_node.csv from the data folder into R by using `read_csv()` of tidyverse package and saves it as a data frame called GAStech_nodes. Step is repeated for data/GAStech_email_edge-v2.csv.
+
+After importing the data file into R, it is important for us to review the data object. We do this using `glimpse()`.
+
+```{r}
+GAStech_nodes <- read_csv("data/GAStech_email_node.csv")
+GAStech_edges <- read_csv("data/GAStech_email_edge-v2.csv")
+
+glimpse(GAStech_nodes)
+glimpse(GAStech_edges)
+```
+
+# Prepping the data
+
+To get the Sentdate in proper day, month, year format using `dmy()` and get the weekday.
+
+```{r}
+GAStech_edges <- GAStech_edges %>%
+  mutate(SentDate = dmy(SentDate)) %>%
+  mutate(Weekday = weekdays(SentDate))
+```
+
+## Wrangling attribute
+
+
+
+```{r}
+GAStech_edges_agg <- GAStech_edges %>%
+  filter(MainSubject == "Work related") %>%
+  group_by(source, target, Weekday) %>%
+  summarise(Weight = n()) %>%
+  filter(source!=target) %>%
+  filter(Weight > 1) %>%
+  ungroup
+```
+
+
+# Building graph model
+
+```{r}
+GAStech_graph <- tbl_graph(nodes = GAStech_nodes,
+                           edges = GAStech_edges_agg,
+                           directed = TRUE)
+
+GAStech_graph
+```
+
+```{r}
+ggraph(GAStech_graph,
+       layout = "stress") +
+  geom_edge_link() +
+  geom_node_point() +
+  theme_graph()
+
+```
+
+## Modifying the nodes
+
+```{r}
+ggraph(GAStech_graph,
+       layout = "stress") +
+  geom_edge_link() +
+  geom_node_point(aes(color = Department,
+                      size = 3)) +
+  theme_graph()
+
+```
+
+
+## Modifying the Edges
+
+```{r}
+ggraph(GAStech_graph,
+       layout = "stress") +
+  geom_edge_link(aes(width = Weight,
+                     alpha = 0.1
+                     )) +
+  scale_edge_width(range = c(0.1, 5)) + 
+  geom_node_point(aes(color = Department,
+                      size = 3)) +
+  theme_graph()
+
+```
+
+
+## Working with facet edges
+
+```{r}
+ggraph(GAStech_graph,
+       layout = "stress") +
+  geom_edge_link(aes(width = Weight,
+                     alpha = 0.1
+                     )) +
+  scale_edge_width(range = c(0.1, 5)) + 
+  geom_node_point(aes(color = Department,
+                      size = 3)) +
+  theme_graph() +
+  facet_edges(~Weekday)
+```
+
+
+## Working with facet node
+
+```{r}
+ggraph(GAStech_graph,
+       layout = "stress") +
+  geom_edge_link(aes(width = Weight,
+                     alpha = 0.1
+                     )) +
+  scale_edge_width(range = c(0.1, 5)) + 
+  geom_node_point(aes(color = Department,
+                      size = 3)) +
+  theme_graph() +
+  facet_nodes(~Department)
+```
+
+
+## Network Metrics Analysis
+
+```{r}
+g <- GAStech_graph %>%
+  mutate(betweenness_centrality = centrality_betweenness()) %>%
+  ggraph(layout = "fr") + 
+  geom_edge_link(aes(width=Weight), 
+                 alpha=0.2) +
+  scale_edge_width(range = c(0.1, 5)) +
+  geom_node_point(aes(colour = Department,
+            size=betweenness_centrality))
+g + theme_graph()
+```
+
+
+# Data preparation for visNetwork
+
+```{r}
+GAStech_edges_aggregated <- GAStech_edges %>%
+  left_join(GAStech_nodes, by = c("sourceLabel" = "label")) %>%
+  rename(from = id) %>%
+  left_join(GAStech_nodes, by = c("targetLabel" = "label")) %>%
+  rename(to = id) %>%
+  filter(MainSubject == "Work related") %>%
+  group_by(from, to) %>%
+    summarise(weight = n()) %>%
+  filter(from!=to) %>%
+  filter(weight > 1) %>%
+  ungroup()
+```
+
+# Plotting interactive netowrk graph via visNetwork
+
+```{r}
+visNetwork(GAStech_nodes, 
+           GAStech_edges_aggregated)
+```
+
+## Using Fruchterman and Reingold layout
+
+```{r}
+visNetwork(GAStech_nodes, 
+           GAStech_edges_aggregated) %>%
+  visIgraphLayout(layout = "layout_with_fr")
+```
+## Highlighting the nodes
+
+
+```{r}
+GAStech_nodes2 <- GAStech_nodes %>%
+  rename(group = Department)
+```
+
+```{r}
+visNetwork(GAStech_nodes2,
+           GAStech_edges_aggregated) %>%
+  visIgraphLayout(layout = "layout_with_fr") %>%
+  visLegend() %>%
+  visLayout(randomSeed = 123)
+```
+
+## Improving the edges
+
+```{r}
+visNetwork(GAStech_nodes2,
+           GAStech_edges_aggregated) %>%
+  visIgraphLayout(layout = "layout_with_fr") %>%
+  visEdges(arrows = "to", 
+           smooth = list(enabled = TRUE, 
+                         type = "curvedCW")) %>%
+  visLegend() %>%
+  visLayout(randomSeed = 123)
+```
+## Giving it interactivity
+
+```{r}
+visNetwork(GAStech_nodes2,
+           GAStech_edges_aggregated) %>%
+  visIgraphLayout(layout = "layout_with_fr") %>%
+  visOptions(highlightNearest = TRUE,
+             nodesIdSelection = TRUE) %>%
+  visLegend() %>%
+  visLayout(randomSeed = 123)
+```
