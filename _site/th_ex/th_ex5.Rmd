@@ -1,0 +1,309 @@
+---
+title: "Take-home Exercise 5"
+description: |
+  In this Take-home Exercise, I will attempt to answer question 1 and 2 of Challenge 2 of the VAST Challenge 2022. I will characterize the distinct areas of the city of Engagement, Ohio USA. I will reveal the busiest areas and identify traffic bottlenecks. This will be done by using appropriate static and interactive statistical graphic methods
+author:
+  - name: Jeremiah Lam  
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this take-home exercise, appropriate static and interactive statistical graphic methods are used to characterize the distinct areas of the city of Engagement, Ohio USA. The busiest areas and traffic bottlenecks will be revealed as well.
+
+The data is processed and prepared by using appropriate tidyverse, tmap, sf, lubridate, clock, sftime and rmarkdown family of packages. 
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+```{r}
+packages = c('sf', 'tmap', 'tidyverse', 
+             'lubridate', 'clock', 
+             'sftime', 'rmarkdown')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+# Importing Data
+
+The code chunk below imports data provided by [**VAST Challenge 2022**](https://vast-challenge.github.io/2022/) into R by using [`read_sf()`](https://r-spatial.github.io/sf/reference/st_read.html) of [**sf**](https://cran.r-project.org/web/packages/sf/index.html) package and saves it as sf data frames.
+
+```{r}
+schools <- read_sf("data/Schools.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+pubs <- read_sf("data/Pubs.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+apartments <- read_sf("data/Apartments.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+buildings <- read_sf("data/Buildings.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+employers <- read_sf("data/Employers.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+restaurants <- read_sf("data/Restaurants.csv",
+                options = "GEOM_POSSIBLE_NAMES=location")
+participants <- read_csv("data/Participants.csv")
+```
+# Characterizing the distinct areas by building type or other factors
+
+The below code chunk plots out the map of city of Engagement, Ohio USA and characterizes the various buildings within the city by their type. We can see that the residential areas are usually located on the edges or outskirts of the city whilst the commercial buildings are more centrally located within the city.
+
+```{r}
+tmap_mode("plot")
+tm_shape(buildings)+
+  tm_fill("buildingType", title = "Building Type", style = "fixed", palette="Dark2" ) +
+  tm_layout(title = "Map by building type", title.position = c('center', 'top')) +
+  tm_borders(col = "grey40")
+tmap_mode("plot")
+
+```
+The below code chunk plots out a composite map of city of Engagement, Ohio USA and characterizes the various building units within the city by the type of business they conduct. We can see that the city is most densely populated with apartments for the residents to dwell in (by the brown dots),followed by places of work (dots colored in salmon). The pubs (labelled as green dots) and restaurants (labelled as blue dots) are nicely situated and surrounded by apartments and work places. Schools are labelled as yellow dots and are located nearer the outskirts of the city.
+
+```{r}
+tmap_mode("plot")
+tm_shape(buildings)+
+tm_polygons(col = "lightgrey",
+           size = 1,
+           border.col = "black",
+           border.lwd = 1) +
+tm_shape(employers) +
+  tm_dots(size = 0.1, col = "salmon") +
+tm_shape(apartments) +
+  tm_dots(size = 0.1, col = "brown") +
+tm_shape(pubs) +
+  tm_dots(size = 0.1,col = "green") +
+tm_shape(restaurants) +
+  tm_dots(size = 0.1, col = "cornflowerblue") +
+tm_shape(schools) +
+  tm_dots(size = 0.1, col = "yellow") +
+  tm_layout(title = "Map by type of business", title.position = c('right', 'top'), legend.outside = TRUE, legend.outside.position = "bottom")
+tmap_mode("plot")
+```
+
+
+We also want to know where in the city are the more pricey apartments to rent and the size of the apartments. Before we plot this out, we have to mutate rental cost and number of rooms to numeric values.
+
+```{r}
+apartments1 <- apartments %>%
+  mutate(rentalCost = as.numeric(rentalCost)) %>%
+  mutate(numberOfRooms = as.numeric(numberOfRooms))
+
+```
+
+Subsequently, the code chunk below plots out a symbol map showing the geographical distribution of apartment rental.There seems to be areas of the city of Engagement, Ohio which are more expensive to live in and can be seen in green.There's a good mix of one room to four room apartments throughout the city.
+
+```{r}
+tm_shape(buildings)+
+tm_polygons(col = "lightgrey",
+           size = 1,
+           border.col = "black",
+           border.lwd = 1)+
+tm_shape(apartments1) +
+  tm_bubbles(col = "rentalCost",
+             alpha = 0.5,
+             n = 6,
+             style = "jenks",
+             palette="PRGn",
+             size = "numberOfRooms",
+             scale = 1.1,
+             border.col = "black",
+             border.lwd = 0.5
+             ) + 
+  tm_layout(main.title = "Geographical Distribution of Apartment Rental", title.position = c('right', 'top'), legend.outside = TRUE)
+```
+
+We can also see where in the city are the larger pubs and restaurants. We first have to wrangle the data for pubs and restaurants using the code chunk below.
+
+```{r}
+combined <- union_all(pubs, restaurants) 
+
+combined <- combined %>%
+  mutate(type = ifelse(is.na(combined$pubId), "Restaurant", "Pub")) %>%
+  mutate(maxOccupancy = as.numeric(maxOccupancy))
+```
+
+Subsequently, the code chunk below plots out a symbol map showing the geographical distribution of restaurants and pubs.There's a good mix of sizes of pubs and restaurants sprawled across the north west, central, east and south east of the city.
+
+```{r}
+tm_shape(buildings)+
+tm_polygons(col = "lightgrey",
+           size = 1,
+           border.col = "black",
+           border.lwd = 1)+
+tm_shape(combined) +
+  tm_bubbles(col = "type",
+             alpha = 0.5,
+             n = 2,
+             style = "jenks",
+             palette="PRGn",
+             size = "maxOccupancy",
+             scale = 1.1,
+             border.col = "black",
+             border.lwd = 0.5
+             ) + 
+  tm_layout(main.title = "Geographical Distribution of Pubs and Restaurants", title.position = c('right', 'top'), legend.outside = TRUE)
+```
+# The busiest areas and traffic bottlenecks
+
+## Additional importing of data
+
+Below code chunk is used to read the participant logs from the Activity logs folder, combine them into an object called dataset, which only takes the columns currentLocation, weekday and hour.
+
+```{r}
+file_list <-dir(path = "data/Activity Logs/", full.names=TRUE)
+
+dataset<- NULL
+
+
+for (i in file_list){
+  temp_data <- read_csv(i) %>%
+    filter(currentMode =="Transport") %>%
+    mutate(weekday = weekdays(timestamp)) %>%
+    mutate(hour = hour(timestamp)) %>%
+    select(currentLocation, weekday, hour)
+  
+  dataset <- rbind(dataset, temp_data)
+  
+  temp_data <- NULL
+}
+
+```
+
+
+## Initial visualisation of traffic data
+
+The data is then group by location, weekday and hour.
+
+
+```{r}
+dataset <- dataset %>% 
+  group_by(currentLocation, weekday, hour) %>%
+  summarise(frequency = n())
+```
+
+Subsequently, plotted in a bar chart to see whether there is any heavy traffic within each day. Whilst the traffic flow for Saturday and Sunday seems relatively stable and constant across the day, traffic flow from Monday - Friday seems to spike at 6am-8am and 4pm-6pm. This will have to be further studied to understand if there are any particular areas with significant traffic flow.
+
+```{r}
+
+ggplot(data = dataset, aes(x = hour, y = frequency)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~weekday, nrow=2) +
+  xlab("Hour")+
+  ylab("Traffic Frequency") +
+  ggtitle("Monitoring Traffic")
+```
+## Plotting the peak periods on weekdays
+
+Firstly, the hexagon has to be created
+
+```{r}
+hex <- st_make_grid(buildings, 
+                    cellsize=100, 
+                    square=FALSE) %>%
+  st_sf() %>%
+  rowid_to_column('hex_id')
+```
+
+Secondly, the data has to be wrangled using the code chunk below, such that we're only mapping for the peak period on weekdays from 6am-8am.
+
+```{r}
+
+dataset2<- dataset %>%
+  filter(weekday == "Monday" | weekday == "Tuesday" | weekday == "Wednesday" | weekday == "Thursday" | weekday == "Friday") %>%
+  filter(hour >= 6 & hour <= 8 ) %>%
+  ungroup() %>%
+  st_as_sf(wkt = "currentLocation")
+```
+
+`st_join()` of sf package is used to tabulate the frequency of traffic in the hexagons.
+
+```{r}
+points_in_hex <- st_join(dataset2, 
+                         hex, 
+                         join=st_within) %>%
+  st_set_geometry(NULL) %>%
+  group_by(hex_id) %>%
+  summarise(count = sum(frequency))
+```
+
+In the code chunk below, `left_join()` of dplyr package is used to perform a left-join by using hex as the target table and points_in_hex as the join table. The join ID is hex_id.
+
+```{r}
+hex_combined <- hex %>%
+  left_join(points_in_hex, 
+            by = 'hex_id') %>%
+  replace(is.na(.), 0)
+```
+
+
+In the code chunk below, tmap package is used to create the hexagon binning map. From this, we can see the busiest areas with traffic bottlenecks in the darker shades of green during 6am-8am.
+
+```{r}
+tm_shape(hex_combined %>%
+           filter(count > 0))+
+  tm_fill("count",
+          n = 25,
+          style = "quantile",
+          palette="BrBG") +
+  tm_borders(alpha = 0.1) + 
+  tm_layout(main.title = "Weekday 6am-8am Traffic Flow", title.position = c('right', 'top'), legend.outside = TRUE)
+```
+Similar steps are repeated to map out the traffic on weekdays from 4pm-6pm.
+
+```{r}
+
+dataset3<- dataset %>%
+  filter(weekday == "Monday" | weekday == "Tuesday" | weekday == "Wednesday" | weekday == "Thursday" | weekday == "Friday") %>%
+  filter(hour >= 16 & hour <= 18 ) %>%
+  ungroup() %>%
+  st_as_sf(wkt = "currentLocation")
+```
+
+`st_join()` of sf package is used to tabulate the frequency of traffic in the hexagons.
+
+```{r}
+points_in_hex2 <- st_join(dataset3, 
+                         hex, 
+                         join=st_within) %>%
+  st_set_geometry(NULL) %>%
+  group_by(hex_id) %>%
+  summarise(count = sum(frequency))
+```
+
+In the code chunk below, `left_join()` of dplyr package is used to perform a left-join by using hex as the target table and points_in_hex2 as the join table. The join ID is hex_id.
+
+```{r}
+hex_combined2 <- hex %>%
+  left_join(points_in_hex2, 
+            by = 'hex_id') %>%
+  replace(is.na(.), 0)
+```
+
+
+In the code chunk below, tmap package is used to create the hexagon binning map. From this, we can see the busiest areas with traffic bottlenecks in the darker shades of green during 4pm-6pm. Whilst the areas of congestion are similar, it is interesting to note that the traffic flow is even heavier compared to 6am-8am on a weekday.  
+
+```{r}
+tm_shape(hex_combined2 %>%
+           filter(count > 0))+
+  tm_fill("count",
+          n = 25,
+          style = "quantile",
+          palette="BrBG") +
+  tm_borders(alpha = 0.1) + 
+  tm_layout(main.title = "Weekday 4pm-6pm Traffic Flow", title.position = c('right', 'top'), legend.outside = TRUE)
+```
