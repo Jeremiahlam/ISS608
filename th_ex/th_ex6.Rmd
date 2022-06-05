@@ -1,0 +1,329 @@
+---
+title: "Take-home Exercise 6"
+description: |
+  In this Take-home Exercise, I will attempt to answer 2 of Challenge 1 of the VAST Challenge 2022. I will analyse the social activities in the community and explain certain patterns observed in the social networks in the city of Engagement, Ohio USA. This will be done by using appropriate static and interactive statistical graphic methods
+author:
+  - name: Jeremiah Lam  
+    url: https://sg.linkedin.com/in/jeremiah-lam-6156238a
+    affiliation: School of Computing and Information Systems
+    affiliation_url: https://scis.smu.edu.sg/
+date: "`r Sys.Date()`"
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# Overview
+
+In this take-home exercise, appropriate static and interactive statistical graphic methods are used to analyse the social activities in the community and explain patterns observed in the social networks in the city of Engagement, Ohio USA.
+
+The data is processed and prepared by using appropriate tidyverse, igraph, ggraph, visNetwork, lubridate, clock, and graphlayouts family of packages. 
+
+# Getting Started
+
+Before getting started, it is important to ensure that the required R packages have been installed. If yes, we will load the R packages. If they have yet to be installed, we will install the R packages and load them onto R environment. 
+
+The chunk code below will do the trick.
+
+
+```{r}
+packages = c('igraph', 'tidygraph', 
+             'ggraph', 'visNetwork', 
+             'lubridate', 'clock',
+             'tidyverse', 'graphlayouts', 'plotly', 'ggstatsplot', 'patchwork')
+
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+# Importing and inspecting the data
+
+The code chunk below imports data provided by [**VAST Challenge 2022**](https://vast-challenge.github.io/2022/) into R by using [`read_csv()`](https://readr.tidyverse.org/reference/read_delim.html) of [**readr**](https://readr.tidyverse.org/reference/index.html) package and saves it as a tibble data frame. 
+
+```{r}
+
+network <- read_csv("data/SocialNetwork.csv")
+participants <- read_csv("data/Participants.csv")
+
+```
+The below code chunk examines the structure of the data frame using `glimpse()` of [`dplyr`](https://dplyr.tidyverse.org/).
+
+```{r}
+glimpse(network)
+glimpse(participants)
+```
+# Data Wrangling
+
+The code chunk below will be used to perform the changes.
+
+```{r}
+network <- network %>%
+  mutate(weekday = wday(timestamp,
+                        label = TRUE,
+                        abbr = FALSE)) 
+```
+
+wday() are functions of lubridate package. lubridate is an R package that makes it easier to work with dates and times.
+wday() returns the day of the week as a decimal number or an ordered factor if label is TRUE. The argument abbr is FALSE keep the day spelled in full, i.e. Monday. The function will create a new column in the data.frame i.e. Weekday and the output of wday() will save in this newly created field. The values in the Weekday field are in ordinal scale.
+
+A close examination of network data.frame reveals that it consists of individualflow records. In view of this, we will aggregate the individual by date, participantsfrom, participantsto and day of the week. Four functions from dplyr package are used. They are: group_by(), summarise(), and ungroup().
+
+```{r}
+network_aggregated <- network %>%
+  group_by(participantIdFrom, participantIdTo, weekday) %>%
+  summarise(weight = n()) %>%
+  filter(participantIdFrom!=participantIdTo) %>%
+  filter(weight >1) %>%
+  ungroup()
+```
+
+The code chunk below creates 2 new tables for weekday edges vs. weekend edges for us to plot the subsequent networks separately.
+
+```{r}
+weekday_network <- network_aggregated %>%
+  filter(weekday == "Monday" | weekday == "Tuesday" | weekday == "Wednesday" | weekday == "Thursday" | weekday == "Friday")
+
+weekend_network <- network_aggregated %>% 
+  filter(weekday == "Saturday" | weekday == "Sunday")
+```
+
+
+Next, we will bin the age and joviality of the participants with the following code chunks:
+
+First, have a sense of where the data lies between using `summary()`.
+
+```{r}
+summary(participants$age)
+summary(participants$joviality)
+```
+
+The code chunk below then bins them accordingly.
+
+```{r}
+participants <- participants %>%
+  mutate(age_group = cut(participants$age, breaks = 6, labels = c("25 & below", "26-32", "33-39", "40-46", "47-53", "54-60"))) %>%
+  mutate(joviality_group = cut(participants$joviality, breaks = 6, labels = c("0.167 & below", "0.168-0.333", "0.334-0.5", "0.501-0.666", "0.667-0.833", "0.834-1")))
+
+summary(participants$age_group)
+summary(participants$joviality_group)
+```
+
+The code chunk below creates 2 new tables for weekday nodes vs. weekend nodes for us to plot the subsequent networks separately.
+
+
+```{r}
+participants_weekdays <- participants %>%
+  filter(participantId %in% c(weekday_network$participantIdFrom, weekday_network$participantIdTo))
+
+participants_weekends <- participants %>%
+  filter(participantId %in% c(weekend_network$participantIdFrom, weekend_network$participantIdTo))
+
+```
+
+# Plotting the network
+
+
+
+The code chunk below uses `tbl_graph()` of *tinygraph* package to build an tidygraph's network graph data.frame.
+
+
+
+```{r}
+network_graph_weekday <- graph_from_data_frame(weekday_network, vertices = participants_weekdays) %>%
+  as_tbl_graph()
+
+network_graph_weekend <- graph_from_data_frame(weekend_network, vertices = participants_weekends) %>%
+  as_tbl_graph()
+```
+
+The overall network for weekdays is then plotted with the code chunk below. As the size of the data is large, focus will be on the top 5% nodes based on their eigenvector centrality score, as they're the most influential/important people in the network.
+
+
+```{r}
+quantiles <- quantile(eigen_centrality(network_graph_weekday)$vector,
+                      probs = seq(0,1, 1/20))
+
+V(network_graph_weekday)$eigen = eigen_centrality(network_graph_weekday)$vector
+
+network_graph_weekday2 <- delete_vertices(network_graph_weekday, V(network_graph_weekday)[eigen < quantiles[20]])
+
+set_graph_style(plot_margin = margin(1,1,1,1)) 
+
+g <- network_graph_weekday2 %>%
+  ggraph(layout = "eigen") + 
+  geom_edge_link() +
+  scale_edge_width(range = c(0.1, 5)) +
+  geom_node_point(aes(colour = age_group,
+            size=eigen))
+
+g
+```
+
+Another way to visualize the network and identifying the influential nodes would be to use the code chunks below.
+
+With the first code chunk below, the igraph object is subsequently converted to a dataframe where we export the node attributes(i.e. eigen, age etc.) 
+
+```{r}
+g1 <- as.data.frame(network_graph_weekday)
+```
+
+A new column is added to the dataframe to segement the data into quartiles, and we filter out for the top 5% of nodes.
+
+```{r}
+g1$quartile <- cut(g1$eigen, quantile(g1$eigen, probs = seq (0,1,1/20), include.lowest=TRUE, labels= FALSE))
+
+g2 <- g1 %>%
+  filter(g1$eigen >0.754 & g1$eigen <=1)
+```
+
+
+Individuals are then plotted as an interactive scatter plot using the code chunk below, with joviality on the x axis, and Eigen Vector Centrality score on the y axis. We can see that the influential participants are have generally higher levels of joviality of 0.6 or more. What is a little surprising, is that the number of influential people aged 25-32 are about the same as the number of influential people aged 47-60, as it takes time to build up your network and influence in the community.
+
+
+```{r}
+plot_ly(data = g2,
+        x = ~joviality,
+        y = ~eigen,
+        color  = ~age_group,
+        text = ~paste("Participant ID", name,     
+                      "<br>Eigen Vector centrality", eigen),
+        colors = "Paired")
+```
+
+The code chunk below then seeks to address both of the questions raised earlier. Namely, does age affect/impact influence, and does being jovial/happy impact/affect your influence.
+
+We see that most pair-wise for Joviality Groups are significant.Suggesting that joviality does indeed play a role in influence.
+
+
+```{r, fig.height = 9}
+g3 <- ggbetweenstats(
+  data    = g1,
+  x       = age_group,
+  y       = eigen,
+  xlab = "Age Group",
+  ylab = "Eigen Vector \nCentrality",
+  type = "p",
+  mean.ci = TRUE,
+  pairwise.comparisons = TRUE,
+  pairwise.display = "s",
+  p.adjust.method = "fdr",
+  package = "ggsci",
+  palette = "uniform_startrek",
+  messages = FALSE
+) +
+  ggplot2::theme(axis.title.y= element_text(angle=0, size = 9),axis.title.x= element_text(size = 9))
+
+g4<-  ggbetweenstats(
+  data    = g1,
+  x       = joviality_group,
+  y       = eigen,
+  xlab = "Joviality Group",
+  ylab = "Eigen Vector \nCentrality",
+  type = "p",
+  mean.ci = TRUE,
+  pairwise.comparisons = TRUE,
+  pairwise.display = "s",
+  p.adjust.method = 'fdr',
+  package = "ggsci",
+  palette = "uniform_startrek",
+  messages = FALSE
+)+
+  ggplot2::theme(axis.title.y= element_text(angle=0, size = 9),axis.title.x= element_text(size = 9))
+
+g3/g4 + plot_annotation(
+    title ="Investigating if joviality and age impact influence",
+    theme = theme(plot.title = element_text(size = 14, face = "bold"))
+  )
+
+
+```
+Steps are repeated to plot out the overall network for the weekend, with the focus again on the top 5% of nodes. It is interesting to observe that nodes belonging to certain interest groups (e.g. G, B & F) have more influence and influential figures.
+
+```{r}
+quantiles <- quantile(eigen_centrality(network_graph_weekend)$vector,
+                      probs = seq(0,1, 1/20))
+
+V(network_graph_weekend)$eigen = eigen_centrality(network_graph_weekend)$vector
+
+network_graph_weekend2 <- delete_vertices(network_graph_weekend, V(network_graph_weekend)[eigen < quantiles[20]])
+
+set_graph_style(plot_margin = margin(1,1,1,1)) 
+
+g5 <- network_graph_weekend2 %>%
+  ggraph(layout = "eigen") + 
+  geom_edge_link() +
+  scale_edge_width(range = c(0.1, 5)) +
+  geom_node_point(aes(colour = interestGroup,
+            size=eigen))
+
+g5
+```
+
+Another way to visualize the network and identifying the influential nodes would be to use the code chunks below.
+
+With the first code chunk below, the igraph object is subsequently converted to a dataframe where we export the node attributes(i.e. eigen, age etc.) 
+
+```{r}
+g6 <- as.data.frame(network_graph_weekend)
+```
+
+A new column is added to the dataframe to segement the data into quartiles, and we filter out for the top 5% of nodes.
+
+```{r}
+g6$quartile <- cut(g6$eigen, quantile(g6$eigen, probs = seq (0,1,1/20), include.lowest=TRUE, labels= FALSE))
+
+summary(g6$quartile)
+```
+```{r}
+g7 <- g6 %>%
+  filter(g6$eigen >0.769 & g6$eigen <=1)
+```
+
+Individuals are then plotted as an interactive scatter plot using the code chunk below, with joviality on the x axis, and Eigen Vector Centrality score on the y axis. We can see that the influential participants are have generally higher levels of joviality of 0.6 or more. What is a little surprising, is that the number of influential people aged 25-32 are about the same as the number of influential people aged 47-60, as it takes time to build up your network and influence in the community.
+
+
+```{r}
+ggplot(data= g7, 
+       aes(x= interestGroup)) +
+  geom_bar(fill= '#468499') +
+  ylim(0, 20) +
+  geom_text(stat = 'count',
+           aes(label= paste0(stat(count), ', ', 
+                             round(stat(count)/sum(stat(count))*100, 
+                             1), '%')), vjust= -0.5, size= 2.5) +
+  labs(y= 'No. of\nParticipants', x= 'Interest Group',
+       title = "Distribution of Influential Nodes") +
+  theme(axis.title.y= element_text(angle=0), axis.ticks.x= element_blank(),
+        panel.background= element_blank(), axis.line= element_line(color= 'grey'))
+```
+
+The code chunk below then seeks to address the question raised earlier. Namely, does your interest group affect your influence in the network.
+
+The plot below suggests that, statistically, there's not enough significant evidence to state confidently that interest group does impact your influence.
+
+```{r}
+g8 <- ggbetweenstats(
+  data    = g6,
+  x       = interestGroup,
+  y       = eigen,
+  xlab = "Interest Group",
+  ylab = "Eigen Vector \nCentrality",
+  type = "p",
+  mean.ci = TRUE,
+  pairwise.comparisons = TRUE,
+  pairwise.display = "s",
+  p.adjust.method = "fdr",
+  package = "ggsci",
+  palette = "springfield_simpsons",
+  messages = FALSE
+) +
+  ggplot2::theme(axis.title.y= element_text(angle=0, size = 9),axis.title.x= element_text(size = 9))
+
+g8
+```
